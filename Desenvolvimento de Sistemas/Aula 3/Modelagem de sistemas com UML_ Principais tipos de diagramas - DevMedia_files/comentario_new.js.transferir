@@ -1,0 +1,1408 @@
+jQuery(document).ready(function($){
+	$(document).on("sliderStepChange",".container-slides .slider-box",function(e){
+        var index = e["originalEvent"].index;
+        var slide = e["originalEvent"].target;
+        var slideJs = $(slide);
+        var pai = slideJs.closest(".comentario_conteudo_texto");
+        var descricao_img_index = $(pai.find(".descricao-img").get(index))
+        var descricao_img = $(pai.find(".descricao-img"))
+        descricao_img.addClass("trash-hidden");
+        descricao_img_index.removeClass("trash-hidden");
+    });
+	
+	$(document).on("click", ".container_avaliacao_item", function () {
+		var avaliacao = $(this);
+		var btn_disabled = $(avaliacao).closest(".container-avaliacao").find(".button_avaliacao_disabled");
+		$(btn_disabled).removeClass("button_avaliacao_disabled");
+		$(btn_disabled).removeAttr("disabled");
+		$(btn_disabled).addClass("button_avaliacao");
+	});
+
+	$(document).on("click", ".button_avaliacao", function () {
+		var botao_avaliacao = $(this);
+		var avaliacao = $(botao_avaliacao).closest(".container-avaliacao").find("input[name='avaliacao']:checked").val();
+		var text_area = $(botao_avaliacao).closest(".comentario_item.comentario_pai").find(".comentario_resposta");
+		var subcomentarios_area = $(botao_avaliacao).closest(".comentario_item.comentario_pai").find(".subcomentarios_area");
+		var container_avaliacao = $(botao_avaliacao).closest(".comentario_avaliacao");
+		var id_comentario = $(botao_avaliacao).closest(".comentario_item.comentario_pai").find(".comentario_principal .comentario_conteudo_texto").attr("data-comentario");
+		var id_ultimo_comentario = $(botao_avaliacao).closest(".subcomentarios_area").find(".comentario_item.consultor .comentario_conteudo_texto:last").attr("data-comentario");
+
+		var nome_usuario = $(botao_avaliacao).closest(".comentario_item.comentario_pai").find(".comentario_principal .comentario_usuario_nome").text();
+		nome_usuario = nome_usuario.trim().split(" ")[0];
+		nome_usuario = nome_usuario.charAt(0).toUpperCase() + nome_usuario.substr(1)
+
+		var texto_avaliacao = $("<section class='container_msg_respondida' style='display: none;'>" +
+			"<span class='thread_respondia'>D&uacute;vida resolvida, obrigado " + nome_usuario + "! " +
+			"Sempre que precisar pode nos chamar, estamos online ;-)</span>" +
+			"</section>");
+
+			var texto_comentario_mais_recente = $(`
+				<section class='container_msg_respondida' style='display: none;'>
+					<span class='thread_respondia'>
+						${nome_usuario}, verificamos que existe uma mensagem uma mensagem mais recente nesta conversa. Atualize p&aacute;gina e veja a nova mensagem ;-)
+					</span>
+				</section>
+			`);
+		
+		switch(avaliacao) {
+			case 1:
+			case "1":
+			case 2:
+			case "2":
+				$.ajax({
+					type: "POST",
+					url: "//www.devmedia.com.br/inc2/comentarios/controller/comentario_controller.php",
+					beforeSend: function () {
+						botao_avaliacao.attr('disabled', true);
+						$(botao_avaliacao).html("Enviando <div class='btn_load'></div>");
+					},
+					data: {
+						idComentario: id_comentario,
+						id_ultimo_comentario: id_ultimo_comentario,
+						acao: "avaliarRespostaConsultor",
+						avaliacao: avaliacao
+					},
+					success: function (data) {
+						$(container_avaliacao).slideUp(400);
+						$(container_avaliacao).remove();
+						$(text_area).remove();
+						console.log(data);
+						if (data == "true") {	
+							$(subcomentarios_area).append(texto_avaliacao);
+							$(texto_avaliacao).slideDown(400);
+						} else {
+							$(subcomentarios_area).append(texto_comentario_mais_recente);
+							$(texto_comentario_mais_recente).slideDown(400);
+						}
+
+					}
+				});
+			break;
+			case 0:
+			case "0":
+				$(container_avaliacao).slideUp(400);
+				$(container_avaliacao).remove();
+				$(text_area).slideDown(400);
+				$([document.documentElement, document.body]).animate({
+					scrollTop: text_area.offset().top - 300
+				}, 1000);
+			break;
+			default:
+				texto_avaliacao = "<section class='container_msg_respondida'>" +
+				"<span class='thread_respondia'>Acorreu um erro e n&atilde;o conseguimos salvar sua avaliç&atilde;o</span>" +
+				"</section>";
+			break;
+		}
+	});
+
+	preparaComentario();
+	calcularHoraEdicao();
+
+	function preparaComentario(){
+		var limite_caracteres = 5000;
+		
+		// Adicionar comentario sub pela caixa de texto.
+		$('.txt_responder').off("click");
+		$('.txt_responder').on('click', function(e){
+			e.preventDefault();
+
+			$(this).siblings(".msg-alerta").remove();
+			$(this).css("border-color", "initial");
+
+			pagina.responder(e);
+		});
+
+		$('.txt_perguntar').off("click");
+		$('.txt_perguntar').on('click', function(e){
+			e.preventDefault();
+			$(".msg-alerta").remove();
+			$(".txt_perguntar").css("border-color", "initial");
+
+			var txtComentarioConteudo = $(this);
+
+			var cafeteria = 0;
+			if(typeof global_comentario_cafeteria != "undefined"){
+				if(global_comentario_cafeteria){
+					cafeteria = 1
+				}
+			}
+
+			var dataLibera = {
+				idcomp: txtComentarioConteudo.data('idcomp'),
+				funcao: "liberaComentario",
+				cafeteria: cafeteria
+			}
+
+			$.ajax({
+				type: "POST",
+				url: "//www.devmedia.com.br/comentarios/scripts/comenta_post.php",
+				data: dataLibera
+			}).done(function(data){
+				if(data.hasOwnProperty('erro') && data.erro == true){
+					// $('.btn_responder.btn_responder_pai.comentario_ativo').remove();
+
+					message = data.retorno;
+
+					if($('.comentario-erro').length == 0){
+						$('<div />', {
+							class: 'comentario-erro', 
+							html: $('<div />').html(message).text()
+						}).insertAfter(txtComentarioConteudo);	
+					}			
+
+					return false;
+				}
+
+				pagina.perguntar(e);
+			});
+		});
+
+		//exibe Aviso
+		var comentarios_nao_respondidos = $(".comentario_conteudo.exibir-aviso");
+		if(comentarios_nao_respondidos.length > 0){
+			exibeMensagemAviso(comentarios_nao_respondidos, "", true);
+		}
+
+		window.pagina = {
+			liberaComentario(textarea, idcomp, callback, callback_complete){
+				var cafeteria = 0;
+				if(typeof global_comentario_cafeteria != "undefined"){
+					if(global_comentario_cafeteria){
+						cafeteria = 1
+					}
+				}
+
+				var dataLibera = {
+					idcomp: idcomp,
+					funcao: "liberaComentario",
+					cafeteria: cafeteria
+				}
+				$.ajax({
+					type: "POST",
+					url: "//www.devmedia.com.br/comentarios/scripts/comenta_post.php",
+					data: dataLibera,
+					success: function(data){
+						if(data.hasOwnProperty('erro') && data.erro == true){
+							message = data.retorno;
+		
+							$('<div />', {
+								class: 'comentario-erro', 
+								html: $('<div />').html(message).text()
+							}).insertAfter(textarea);
+
+							callback_complete();
+							return false;
+						}
+						callback();
+					},
+					error: function(){
+						callback_complete();
+					}
+				});
+			},
+			responder: function(event){
+				var textarea = $(event.target);
+				var pai = textarea.closest(".comentario_pai");
+				var textareaPai = pai.find(".comentario_resposta");
+
+				if(textareaPai.find(".btn_responder").length == 0){
+					textarea.addClass('comentario_ativo');
+
+					var enviarBtn = $('<button />', {
+						class: 'btn_responder',
+						text: 'Responder a todos',
+						type: 'button'
+					});
+
+					//textareaPai.append(enviarBtn);
+				}
+			},
+
+			perguntar: function(event){
+				var textarea = $(event.target);
+				var pai = textarea.closest(".comentario_novo_area");
+				var textareaPai = pai.find(".comentario_input");
+
+				if(textareaPai.find(".btn_responder").length == 0){
+					textarea.addClass('comentario_ativo');
+
+					var buttonWrapper = $(".comentario_div_wrapper");
+					var enviarBtn = $('<button />', {
+						class: 'btn_responder btn_responder_pai',
+						text: 'Postar',
+						type: 'button'
+					});
+
+					//buttonWrapper.append(enviarBtn);
+					//textareaPai.append(buttonWrapper);
+				}
+			}
+		};
+	};
+
+	$('.txt_perguntar, .txt_responder').on("input", function(e){
+		var textarea = $(this);
+		var qnt_caracteres = $(this).val().length;
+
+		$(this).siblings(".contador-caracteres").find(".caracteres-atualizado").text(`${qnt_caracteres}`);
+
+		if(qnt_caracteres > 5000) {
+			$(".caracteres-atualizado").css("color", "red");
+		}else {
+			$(".caracteres-atualizado").css("color", "#6c6c6c");
+		}
+
+		var width_tela = $(window).width();
+
+		if(width_tela > 650){
+			textarea.height("auto").height(`${textarea[0].scrollHeight}px`);
+	
+			var altura_maxima = 200;
+			if (textarea.height() > altura_maxima) {
+				textarea.height(`${altura_maxima + 5}px`);
+			}
+		}
+	})
+
+	$("#div_comentarios").on('click', ".ver-mais", function(e){
+		var verMais = $(this);
+		var idcomp = verMais.attr('data-idcomp');
+		var id_usuario_crip = verMais.attr('data-user');
+
+		var pagina = 2;
+		
+		if(typeof verMais.attr("data-pagina") != "undefined"){
+			pagina = parseInt(verMais.attr('data-pagina'));
+		}
+
+		componentes = null;
+
+		if(typeof listaAulas != "undefined" && listaAulas.length > 0){
+			componentes = window.listaAulas;
+		}else if(typeof listaSalas != "undefined" && listaSalas.length > 0){
+			componentes = window.listaSalas;
+		}
+
+		var comentarioAba = verMais.closest(".comentario_aba");
+		var comentarioArea = comentarioAba.find(".comentario_area");
+		var tipo = null;
+		
+		switch (comentarioAba.attr("id")) {
+			case "comentario_aba_curso":
+				tipo = "curso";
+				break;
+
+			case "comentario_aba_aula":
+				tipo = "aula";
+				break;
+
+			case "comentario_aba_usuario":
+				tipo = "usuario";
+				break;
+
+			case "comentario_aba_sala":
+				tipo = "sala";
+				break;
+		}
+
+		var cafeteria = 0;
+		var ordenamento_id = null;
+		if(typeof global_comentario_cafeteria != "undefined"){
+			if(global_comentario_cafeteria){
+				tipo = "cafeteria";
+
+				ordenamento_id = $(".textos-ordenamento.ativo").attr("id");
+			}
+		}
+
+		var minhas_publicacoes = false;
+		
+		if(idcomp == -1){
+			componentes = [43519,43520,43521,43619,43749];
+			minhas_publicacoes = true;
+		}
+
+		var dados = {
+			idcomp: idcomp,
+			componentes: componentes,
+			tipo: tipo,
+			pagina: pagina,
+			minhas_publicacoes: minhas_publicacoes,
+			id_usuario_crip: id_usuario_crip,
+			ordenamento_cafeteria: ordenamento_id
+		};
+
+		var loadBlock = comentarioAba.find('.load');
+
+		loadBlock.addClass("loading");
+
+		$.ajax({
+			url: '//www.devmedia.com.br/comentarios/scripts/lista_comentario_filtrados.php',
+			method: 'POST',
+			data: dados
+		}).done(function(data){
+			loadBlock.removeClass("loading");
+			if(data.ultima){
+				verMais.hide();
+			}else{
+				pagina++;
+				verMais.attr('data-pagina', pagina);
+				verMais.show();
+			}
+
+			comentarioArea.append($(data.conteudo));
+
+			preparaComentario();
+			$('.comentario_conteudo_texto.comentario-editavel').DVMEditable(window.editableOptions);
+
+			if(typeof instgrm != "undefined"){
+				instgrm.Embeds.process()
+			}
+			
+			// if(typeof iniciarListaOculta != "undefined"){
+			// 	iniciarListaOculta();
+			// }
+
+			if(typeof carrosselProjetos != "undefined"){
+				carrosselProjetos();
+			}
+		});
+	});
+
+	$("#div_comentarios").on("click", ".destaque", function(){
+		if($(this).hasClass("waiting")){
+			return false;
+		}
+
+		var destaqueComentario = $(this);
+		var c = destaqueComentario.data("id");
+
+		destaqueComentario.addClass("waiting");
+
+		$.ajax({
+			url: "//www.devmedia.com.br/comentarios/include/marcar_comentario.php",
+			method: "POST",
+			data: {c: c}
+		}).done(function(res){
+			if(res.status){
+				if(res.response == 1){
+					destaqueComentario.addClass("destacado");
+				}else{
+					destaqueComentario.removeClass("destacado");
+				}
+			}else{
+				console.log(res.response);
+			}
+
+			destaqueComentario.removeClass("waiting");
+		});
+	});
+
+	$("#div_comentarios").on("click",".container-svg-select", function(){
+		$(this).closest(".escolher-arquivo").find(".botao-imagem").click()
+	})
+
+	$("#div_comentarios").on("change", ".botao-imagem", function(){
+		$(".mensagem-erro-imagem").remove();
+
+		var btn_file = $(this);
+		var nome_arquivo = btn_file.val();
+
+		nome_arquivo = nome_arquivo.substring(12);
+
+		var botaoEstilizado = btn_file.closest(".escolher-arquivo").find(".container-svg-select");
+		var svg_botaoEstilizado = btn_file.closest(".escolher-arquivo").find(".select-svg");
+		var texto_botaoEstilizado = btn_file.closest(".escolher-arquivo").find(".texto-select-svg");
+		var texto_nomearquivo = btn_file.closest(".escolher-arquivo").find(".nome-arquivo-comentario");
+		var container_geral_imagem = btn_file.closest(".escolher-arquivo").find(".container-geral-imagem");
+
+		if(btn_file.is("#select_comentario_pai") || btn_file.is("#select_comentario")){
+			var container_botaoEstilizado = btn_file.closest(".comentario_input").find(".escolher-arquivo");
+		}else{
+			var container_botaoEstilizado = btn_file.closest(".comentario_resposta").find(".escolher-arquivo");
+		}
+
+		if(nome_arquivo.length > 0){
+			botaoEstilizado.addClass("curto");
+			svg_botaoEstilizado[0].classList.add("curto");
+			container_botaoEstilizado.addClass("curto");
+			texto_botaoEstilizado.addClass("curto");
+			
+			if(texto_nomearquivo.length > 0){
+				texto_nomearquivo.html(`${nome_arquivo}`)
+
+			}else{
+				container_geral_imagem.append(`<span class='nome-arquivo-comentario'>${nome_arquivo}</span>`)
+			}
+			$(".nome-arquivo-comentario").append(`<svg class="trash remover-img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
+				<path d="M135.2 17.7L128 32H32C14.3 32 0 46.3 0 64S14.3 96 32 96H416c17.7 0 32-14.3 32-32s-14.3-32-32-32H320l-7.2-14.3C307.4 6.8 296.3 0 284.2 0H163.8c-12.1 0-23.2 6.8-28.6 17.7zM416 128H32L53.2 467c1.6 25.3 22.6 45 47.9 45H346.9c25.3 0 46.3-19.7 47.9-45L416 128z"></path>
+				</svg>`)
+		}else{
+			$(".mensagem-erro-imagem").remove();
+			botaoEstilizado.removeClass("curto");
+			svg_botaoEstilizado[0].classList.remove("curto");
+			container_botaoEstilizado.removeClass("curto");
+			texto_botaoEstilizado.removeClass("curto");
+			texto_nomearquivo.remove();
+		}
+
+	});
+
+	$("#div_comentarios").on("click", ".remover-img", function(){
+		var botao_img = $(this).closest(".escolher-arquivo").find(".botao-imagem");
+		botao_img.remove()
+		$(this).closest(".escolher-arquivo").append(`<input type="file" name="media" id="select_projeto" placeholder="Media" accept=".jpg, .jpeg, .png, .webp" class="botao-imagem">`);
+		$(this).closest(".nome-arquivo-comentario").remove()
+	})
+
+	$(document).on("click", ".container-url-insta", function(){
+		$(this).siblings(".insta_alert").remove();
+		$(this).find(".container-instagram-input").siblings(".url_insta").css("border-color", "initial");
+	})
+
+	$(document).on("click", ".close-button", function () {
+		$(".modal_area_bot").removeClass("show");
+	});
+
+	$(document).on("click", ".modal_area_bot", function () {
+		$(".modal_area_bot").removeClass("show");
+	});
+
+	$("#div_comentarios").on("click", ".btn_responder", function(){
+		$(".comentario-erro").remove();
+		$(".insta_alert").remove();
+		$(".btn_aviso_horario").removeClass("ativo");
+		$(".url_insta").removeClass("erro");
+
+		var enviarButton = $(this);
+		var isSub = false;
+
+		var suporte = 0;
+		if(typeof isSuporte != "undefined"){
+			if(isSuporte == true){
+				suporte = 1;
+			}
+		}
+
+		var cafeteria = 0;
+		if(typeof global_comentario_cafeteria != "undefined"){
+			if(global_comentario_cafeteria){
+				cafeteria = 1
+			}
+		}
+
+		if($(this).hasClass("btn_responder_pai")){
+			var container = $('#div_comentarios .comentario_aba.active .comentario_area');
+			var textarea = enviarButton.closest(".comentario_input").find(".txt_perguntar");
+			var idcomp_pagina = $(".comentario_novo_area .comentario_input .txt_perguntar").data('idcomp');
+			var textareaWrapper = $(".comentario_novo_area");
+		}else{
+			isSub = true;
+			var container = enviarButton.closest(".comentario_item").find('.subcomentarios_area');
+			var textarea = enviarButton.closest(".comentario_resposta").find(".txt_responder");
+			var idcomp_pagina = textarea.data('idcomp');
+			var textareaWrapper = "";
+		}
+		var idcomp = textarea.data('idcomp');
+		var idcopai = textarea.data('idcopai');
+
+		if(idcomp == -100){ //esta na cafeteria mas não escolheu onde postar
+			$(".comentario_novo_area .cafeteria-escolha").addClass("invalido");
+			return false;
+		}
+
+		var usuario_nome = $(".comentario_novo_area .usuario_info .foto_usuario img").attr("alt");
+
+		var tipo = null;
+		var externo = null;
+
+		if($("#div_comentarios").attr("data-tipo") > 0){
+			var tipo = $("#div_comentarios").attr("data-tipo");
+		}
+
+		if($("#div_comentarios").attr("data-externo") > 0){
+			var externo = $("#div_comentarios").attr("data-externo");
+		}
+		$(".txt_perguntar").css("border-color", "initial");
+		$(".txt_responder").css("border-color", "initial");
+		$(".msg-alerta").remove();		
+		
+		if(idcomp == 43619 && idcopai == -1){
+			$("#projeto-titulo").css("border-color", "initial");
+			$("#projeto-link").css("border-color", "initial");
+			$("#projeto-repositorio").css("border-color", "initial");
+			$("#projeto-resumo").css("border-color", "initial");
+
+			if($("#projeto-titulo").val().length == 0){
+				$("#projeto-titulo").css("border-color", "red");
+				$("#projeto-titulo").parent().append("<span class='msg-alerta'>Voc&ecirc; n&abreve;o informou o titulo</span>")
+				return false;
+			}
+			if($("#projeto-resumo").val().length == 0){
+				$("#projeto-resumo").css("border-color", "red");
+				$("#projeto-resumo").after("<span class='msg-alerta'>Voc&ecirc; n&abreve;o informou o resumo do seu projeto</span>")
+				return false;
+			}	
+			
+		} else {
+			$(textarea).css("border-color", "initial");
+			if(!textarea.val().trim().length){
+				$(textarea).css("border-color", "red");
+				textarea.after("<span class='msg-alerta'>Voc&ecirc; n&abreve;o informou sua d&uacute;vida</span>")
+				return false;
+			}
+		}
+
+		var container_url_insta = textarea.siblings(".container-url-insta");
+		var tem_insta = container_url_insta.length > 0;
+		var textarea_new = textarea.val();
+		var id_topico = $(".topico-item.active").attr("data-id");
+		
+		if (tem_insta) {
+			var url_insta = container_url_insta.find(".url_insta")
+			if (url_insta.length > 0) {
+				url_insta = url_insta.val();
+				var insta_vazio = url_insta.length > 0;
+				var url_valida = url_insta.indexOf("https://www.instagram.com") == 0;
+
+
+				if (url_valida) {
+					url_insta = url_insta.split(" ");
+					url_insta = url_insta[0];
+
+					url_insta = `\n[insta]${url_insta}[/insta]`;
+					textarea_new = textarea_new + url_insta;
+				}else if(!insta_vazio){
+					var msg_url_invalid = $(`
+						<span class="insta_alert">
+							Preencha a url de seu post do Instagram! 
+						</span>`
+					);
+
+					container_url_insta.after(msg_url_invalid);
+					container_url_insta.find(".url_insta").css("border-color", "red");
+					return false;
+				} else {
+					var msg_url_invalid = $(`
+						<span class="insta_alert">
+							Aten&ccedil;&atilde;o! Url do Instagram inv&aacute;lida
+						</span>`
+					);
+					container_url_insta.after(msg_url_invalid);
+					container_url_insta.find(".url_insta").css("border-color", "red");
+					return false;
+				}
+			}else if(id_topico == 43749 && !isSub){
+				var msg_url_invalid = $(`
+				<span class="insta_alert">
+				Voc&#234; deve publicar um post de seu Instagram! :) 
+				</span>`
+				
+			);
+
+			textarea.after(msg_url_invalid);
+			container_url_insta.find(".url_insta").css("border-color", "red");
+			return false;
+			}
+		}else if(id_topico == 43749 && !isSub){
+			var msg_url_invalid = $(`
+			<span class="insta_alert">
+				Voc&#234; deve publicar um post de seu Instagram! :) 
+			</span>`
+		);
+
+		textarea.after(msg_url_invalid);
+		container_url_insta.find(".url_insta").css("border-color", "red");
+		return false;
+		}
+
+		// API IMAGEM
+
+		if(!isSub){
+			var select_imagem = enviarButton.closest(".comentario_input").find(".botao-imagem");
+			// var select_imagem = document.getElementById("select_comentario_pai");
+		}else{
+			var select_imagem = enviarButton.closest(".comentario_resposta").find(".botao-imagem");
+		}
+
+		var url_imagem = "";
+		let tipo_arquivo = "";
+
+		//var key = "000460a434813a7909894e616048e2ff"; // thumbsnap fernando
+		var key = "0000277a275baa2feace98ba33813d73"; // thumbsnap joao
+		//var key = "f43b8a0d74dec4758c5af519cfd8294e"; // // imgbb
+
+		let formData = new FormData();
+		
+		if(select_imagem.length > 0 && select_imagem[0].files.length > 0){
+			var dados_imagem = select_imagem[0].files[0];
+
+			var currentDateTime = new Date().toISOString();
+			currentDateTime = currentDateTime.replace(/[:.-]/g, "");
+			const dados_imagem_renomeado = new File([dados_imagem], currentDateTime, {type: dados_imagem.type});
+
+			tipo_arquivo = select_imagem[0].files[0]["type"];
+			tamanho_arquivo = select_imagem[0].files[0]["size"] / 1000000;
+
+			if(tipo_arquivo == "image/png" || tipo_arquivo == "image/jpg" || tipo_arquivo == "image/jpeg"|| tipo_arquivo == "image/webp"){ 
+				if(tamanho_arquivo < 30){
+					enviarButton.attr('disabled', true);
+					enviarButton[0].og_text = enviarButton.html();
+					$(enviarButton).html("Enviando <div class='btn_load'></div");
+			
+					$(".container_msg_respondida").slideUp(400, function(){$(this).remove();});
+	
+					formData.append("key", key);
+					
+					formData.append("media", dados_imagem); // thumbsnap
+					var url_upload_imagem = "https://thumbsnap.com/api/upload";  // thumbsnap
+
+					//formData.append("image", dados_imagem); // // imgbb
+					//var url_upload_imagem = "https://api.imgbb.com/1/upload";  // imgbb
+
+					$.ajax({
+						url: url_upload_imagem,
+						method: "POST",
+						processData: false,
+						contentType: false,
+						data: formData,
+						error: function (res) {
+							alert("Erro!");
+						}
+					}).done(function(res){
+						url_imagem = res["data"]["media"]; // thumbsnap
+						//url_imagem = res["data"]["url"]; // imgbb
+						verificaImagemComentario(url_imagem);
+					})
+				}else{
+
+					$(".mensagem-erro-imagem").remove();
+					
+					if(isSub){
+						var escolher_arquivo = enviarButton.closest(".comentario_resposta").find(".escolher-arquivo");
+					}else{
+						var escolher_arquivo = enviarButton.closest(".comentario_input").find(".escolher-arquivo");
+					}
+					escolher_arquivo.after("<span class='mensagem-erro-imagem'>Sua imagem deve possuir menos de 30MB</span>")
+
+					return false;
+				}
+			}else{
+					
+				$(".mensagem-erro-imagem").remove();
+				if(isSub){
+					var escolher_arquivo = enviarButton.closest(".comentario_resposta").find(".escolher-arquivo");
+				}else{
+					var escolher_arquivo = enviarButton.closest(".comentario_input").find(".escolher-arquivo");
+				}
+				escolher_arquivo.after("<span class='mensagem-erro-imagem'>O arquivo escolhido deve ser JPG, JPEG, PNG ou WEBP</span>")
+
+				// $(".escolher-arquivo").after("<span class='mensagem-erro-imagem'>O arquivo escolhido deve ser JPG, JPEG, PNG ou WEBP</span>")
+			
+				return false;				
+			}
+        }else{
+			enviarButton.attr('disabled', true);
+			enviarButton[0].og_text = enviarButton.html();
+			$(enviarButton).html("Enviando <div class='btn_load'></div");
+	
+			$(".container_msg_respondida").slideUp(400, function(){$(this).remove();});
+
+			verificaImagemComentario();
+		}
+
+		// FIM API IMAGEM
+
+		function verificaImagemComentario(url = null){
+			var tem_insta = $(".container-url-insta").length > 0;
+
+			pagina.liberaComentario(textarea, idcomp, function(){
+				$(enviarButton).closest(".comentario_pai").find(".comentario_item.aviso").remove();
+				let privado = 1;
+				if($(".comentario_filtro_select").length > 0){
+					if($(".comentario_filtro_select").val() == 3){
+						privado = 1;
+					}
+				}
+				if(idcomp == 43619 && idcopai == -1){
+					$('.container-form-projeto').prepend("<input type='hidden' name='url_imagem' id='img_projeto' value='"+url+"'>");
+					
+					var data = $(".container-form-projeto").serialize()
+				} else {
+					var data = {
+						idcomp: idcomp,
+						idcurso: 0,
+						idcoment_pai: idcopai,
+						idcomp_pagina: idcomp_pagina,
+						privado: privado,
+						tipo: tipo,
+						externo: externo,
+						conteudo: textarea_new,
+						suporte: suporte,
+						cafeteria: cafeteria,
+							funcao: 'inserirComentario',
+							url_imagem: url
+						}
+				}
+
+				$.ajax({
+					type: 'POST',
+					url: '//www.devmedia.com.br/comentarios/scripts/comenta_post.php',
+					data: data
+					}).done(function(data){
+						if('modal' in data){
+							$(".modal_area_bot").addClass("show");
+							$(".modal_area_bot").html(data.modal);
+						}
+
+						$(".url_insta").val("");
+						if(id_topico != 43749 && !isSub){
+							$(".container-url-insta").slideUp(200, "linear", ()=> {
+								$(".container-url-insta").remove();
+							});
+						}
+
+						$(".mensagem-erro-imagem").remove();
+
+						if(!isSub){
+							$(".textos-ordenamento#recentes").trigger("click");
+							
+							var btn_file = enviarButton.closest(".comentario_input").find(".botao-imagem");
+							btn_file.val("");
+							var container_botaoEstilizado = btn_file.closest(".comentario_input").find(".escolher-arquivo");
+				
+						}else{
+							var btn_file = enviarButton.closest(".comentario_resposta").find(".botao-imagem");
+							btn_file.val("");
+							var container_botaoEstilizado = btn_file.closest(".comentario_resposta").find(".escolher-arquivo");
+				
+						}
+				
+						var botaoEstilizado = btn_file.closest(".escolher-arquivo").find(".container-svg-select");
+						var svg_botaoEstilizado = btn_file.closest(".escolher-arquivo").find(".select-svg");
+						var texto_botaoEstilizado = btn_file.closest(".escolher-arquivo").find(".texto-select-svg");
+						var texto_nomearquivo = btn_file.closest(".escolher-arquivo").find(".nome-arquivo-comentario");
+				
+						if (svg_botaoEstilizado.length) {
+							svg_botaoEstilizado[0].classList.remove("curto");
+						}
+						
+						botaoEstilizado.removeClass("curto");
+						container_botaoEstilizado.removeClass("curto");
+						texto_botaoEstilizado.removeClass("curto");
+						texto_nomearquivo.remove();
+						enviarButton.attr('disabled', false);
+						enviarButton.closest(".comentario_pai").find(".comentario-remove-btn").remove();
+						enviarButton.closest(".comentario_pai").find(".editar-btn-area").remove();
+						container_botaoEstilizado.siblings(".contador-caracteres").find(".caracteres-atualizado").html("0");
+						/* if ($(enviarButton).hasClass("btn_responder_pai")) {
+							$(enviarButton).html("Enviar para os professores");
+						} else {
+							$(enviarButton).html("Enviar");
+						} */
+
+						enviarButton.html(enviarButton[0].og_text);
+
+						if(data.hasOwnProperty('erro') && data.erro == 'TRUE' && data.hasOwnProperty('retorno')){
+							message = data.retorno;
+							var texto_retorno = $(`
+								<section class='container_msg_respondida' style='display: none;'>
+									<span class='thread_respondia'>${message}</span>
+								</section>
+							`);
+
+							if(isSub){
+								container.append(texto_retorno);
+							}else{
+								container.prepend(texto_retorno);
+							}
+							$(texto_retorno).slideDown(400);
+
+							/*if(cafeteria != 1){
+								textarea.remove();
+								enviarButton.remove();
+							}*/
+							
+							return false;
+						}
+						
+						if(data.hasOwnProperty('erro') && data.erro == true){
+							$('<div />', {
+								class: 'comentario-erro' 
+							}).prepend(
+								$('<p />', {
+									html: $('<div />').html('<p class="texto">Ocorreu um erro ao enviar o comentário</p>').text()
+								})
+							).insertAfter(textarea);
+
+							return false;
+						}
+
+						var novoComentario = $(data.comentariohtml);
+
+						if(isSub){
+							container.append(novoComentario);
+						}else{
+							container.prepend(novoComentario);
+						}
+
+						if(typeof comentarioAbertoSemSuporte != 'undefined' && comentarioAbertoSemSuporte){
+							novoComentario.find(".comentario_item.aviso").remove();
+						}
+
+						/*exibeMensagemAviso(novoComentario.find(".comentario_conteudo"), usuario_nome);*/
+
+						$([document.documentElement, document.body]).animate({
+							scrollTop: novoComentario.offset().top - 300
+						}, 1000);
+
+						textarea.removeClass(".comentario_ativo").val("");
+
+						if(typeof instgrm != "undefined"){
+							instgrm.Embeds.process()
+						}
+
+						if(cafeteria != 1 && textareaWrapper.length > 0){
+							textareaWrapper.slideUp(400);
+						}
+
+						$('.comentario_conteudo_texto.comentario-editavel').DVMEditable(window.editableOptions);
+						
+						preparaComentario();
+
+						$(".comentario_aba:not(.active)").removeAttr("data-load");
+
+						if(typeof window.comentariosEnvioEvent != "undefined"){
+							$("#comentario")[0].dispatchEvent(window.comentariosEnvioEvent);
+						}
+						if(idcomp == 43619 && enviarButton.hasClass("btn_responder_pai")){
+							carrosselProjetos()
+							$(".container-novo-comentario").remove()
+							let btn_novo_projeto = $(`<div class="btn-novo-projeto">Publicar novo projeto</div>`);
+							$("#div_comentarios").prepend(btn_novo_projeto);
+						}
+						
+				});
+			}, function(){
+				enviarButton.html(enviarButton[0].og_text);
+			});
+		}
+	});
+
+	$(document).on("click", ".feedback-btn", function(){
+		let action = $(this).data("action");
+		let url = $(this).data("url");
+  
+		if(action == "temporada"){
+			window.location.href = url;
+		}
+	});
+  
+	$("#div_comentarios").on("click",".btn-novo-projeto", function(){
+		window.location.reload(true);
+	});
+	
+	$("#div_comentarios").on("click",".btn_aviso_horario .btn_aviso_fechar", function(){
+		$(this).parent().removeClass("ativo");
+	});
+
+	$("#div_comentarios").on("click",".comentario-remove-btn", function(){
+		if(typeof $(this).attr("disabled") == "undefined"){
+			var btn = $(this);
+			btn.attr("disabled", "disabled");
+
+			var comentario = $(this).closest(".comentario_item");
+			var id = parseInt($(this).data("id"));
+
+			$.ajax({
+				type: 'POST',
+				url: '//www.devmedia.com.br/inc/comentarios/controller/comentario_controller.php',
+				data: {
+					id: id,
+					acao: 'excluirComentario'
+				},
+				success: function(data){
+					if(data.status){
+						var sucesso = $('<div />', {
+							class: 'comentario-erro sucesso' 
+						}).prepend(
+							$('<p />', {
+								html: $('<div />').html("Coment&aacute;rio removido com sucesso").text()
+							})
+						)
+
+						comentario.after(sucesso);
+
+						comentario.slideUp(400, function(){
+							comentario.remove();
+						});
+
+						if ($(btn).parent().hasClass("comentario_principal")) {
+							$(".comentario_novo_area").slideDown(400);
+						}
+					}else{
+						btn.remove();
+
+						var erro = $('<div />', {
+							class: 'comentario-erro' 
+						}).prepend(
+							$('<p />', {
+								html: $('<div />').html(data.mensagem).text()
+							})
+						)
+
+						comentario.append(erro);
+					}
+				},
+				error: function(data){
+					btn.remove();
+					console.error(data);
+				}
+			});
+
+		}
+	});
+
+	$("#div_comentarios").on("change",".comentario_filtro_select",function(){
+		var select = $(this);
+		select.prop("disabled", true);
+		var valor = parseInt(select.val());
+		var idcomp = $(".comentario_novo_area .comentario_input .txt_perguntar").data('idcomp');
+		if(idcomp == null){
+			var idcomp = $("#div_comentarios").data('idcomp');
+		}
+
+		var tipo = null;
+		var comentarioArea = null;
+
+		switch (valor) {
+			case 0:
+				tipo = "curso";
+				comentarioAba = $("#comentario_aba_curso");
+				break;
+
+			case 1:
+				tipo = "aula";
+				comentarioAba = $("#comentario_aba_aula");
+				break;
+
+			case 2:
+				tipo = "usuario";
+				comentarioAba = $("#comentario_aba_usuario");
+				break;
+
+			case 3:
+				tipo = "sala";
+				comentarioAba = $("#comentario_aba_sala");
+				break;
+				
+			default:
+				tipo = "curso";
+				comentarioAba = $("#comentario_aba_curso");
+				break;
+		}
+
+		if(typeof comentarioAba.attr("data-load") != "undefined"){
+			$(".comentario_area_abas").addClass("loading");
+
+			$(".comentario_aba").slideUp(400,function(){
+				comentarioAba.slideDown(400,function(){
+					select.prop("disabled", false);
+					$(".comentario_area_abas").removeClass("loading");
+				});
+
+				$(".comentario_aba").removeClass("active");
+				comentarioAba.addClass("active");
+
+				return true;
+			});
+		}else{
+			var verMais = comentarioAba.find(".comentario_listar_mais");
+			var comentarioArea = comentarioAba.find(".comentario_area");
+
+			componentes = null;
+
+			if(typeof listaAulas != "undefined" && listaAulas.length > 0){
+				componentes = window.listaAulas;
+			}else if(typeof listaSalas != "undefined" && listaSalas.length > 0){
+				componentes = window.listaSalas;
+			}
+	
+			var dados = {
+				idcomp: idcomp,
+				componentes: componentes,
+				tipo: tipo
+			};
+	
+			$(".comentario_area_abas").addClass("loading");
+	
+			$.ajax({
+				url: '//www.devmedia.com.br/comentarios/scripts/lista_comentario_filtrados.php',
+				method: 'POST',
+				data: dados
+			}).done(function(data){
+				if(data.ultima){
+					verMais.hide();
+				}else{
+					verMais.attr('data-pagina', 1);
+					verMais.show();
+				}
+
+				$(".comentario_aba").removeClass("active");
+				comentarioAba.addClass("active");
+				
+				$(".comentario_aba").slideUp(400,function(){
+					comentarioArea.html($(data.conteudo));
+	
+					preparaComentario();
+					$('.comentario_conteudo_texto.comentario-editavel').DVMEditable(window.editableOptions);
+	
+					comentarioAba.slideDown(400,function(){
+						select.prop("disabled", false);
+						$(".comentario_area_abas").removeClass("loading");
+					});
+				});
+				
+				comentarioAba.attr("data-load", "loaded");
+			});
+		}
+	});
+
+	$("#div_comentarios .refresh-button").on("click", function(){
+		var refresh = $(this);
+		if(typeof refresh.attr("data-loading") != "undefined"){
+			return false;
+		}
+
+		refresh.attr("data-loading", "true");
+
+		var select = $(".comentario_filtro_select");
+		select.prop("disabled", true);
+		var valor = parseInt(select.val());
+		var idcomp = $(".comentario_novo_area .comentario_input .txt_perguntar").data('idcomp');
+
+		var tipo = null;
+		var comentarioArea = null;
+
+		switch (valor) {
+			case 0:
+				tipo = "curso";
+				comentarioAba = $("#comentario_aba_curso");
+				break;
+
+			case 1:
+				tipo = "aula";
+				comentarioAba = $("#comentario_aba_aula");
+				break;
+
+			case 2:
+				tipo = "usuario";
+				comentarioAba = $("#comentario_aba_usuario");
+				break;
+
+			case 3:
+				tipo = "sala";
+				comentarioAba = $("#comentario_aba_sala");
+				break;
+		}
+
+		var verMais = comentarioAba.find(".comentario_listar_mais");
+		var comentarioArea = comentarioAba.find(".comentario_area");
+
+		componentes = null;
+
+		if(typeof listaAulas != "undefined" && listaAulas.length > 0){
+			componentes = window.listaAulas;
+		}else if(typeof listaSalas != "undefined" && listaSalas.length > 0){
+			componentes = window.listaSalas;
+		}
+
+		var dados = {
+			idcomp: idcomp,
+			componentes: componentes,
+			tipo: tipo
+		};
+
+		$(".comentario_area_abas").addClass("loading");
+
+		$.ajax({
+			url: '//www.devmedia.com.br/comentarios/scripts/lista_comentario_filtrados.php',
+			method: 'POST',
+			data: dados
+		}).done(function(data){
+			if(data.ultima){
+				verMais.hide();
+			}else{
+				verMais.attr('data-pagina', 1);
+				verMais.show();
+			}
+			
+			comentarioArea.html($(data.conteudo));
+
+			preparaComentario();
+			$('.comentario_conteudo_texto.comentario-editavel').DVMEditable(window.editableOptions);
+
+			select.prop("disabled", false);
+			$(".comentario_area_abas").removeClass("loading");
+			
+			refresh.removeAttr("data-loading");
+			calcularHoraEdicao();
+		});
+	});
+
+	$("#div_comentarios").on("click",".btn_abrir_responder", function(){
+		$(this).closest(".comentario_resposta").removeClass("oculto");
+		$(this).closest(".comentario_resposta").find(".txt_responder").focus();
+		$(this).closest(".comentario_resposta").find(".contador-caracteres").removeClass("oculto");
+		$(this).closest(".comentario_resposta").find(".escolher-arquivo").removeClass("oculto");
+		$(this).closest(".comentario_resposta").find(".container-url-insta").removeClass("oculto");
+	});
+
+	$("#div_comentarios").on("click",".btn_permalink", function(){
+		var idcomentario_pai = $(this).closest(".comentario_resposta").find(".txt_responder").attr("data-idcopai");
+		var idcomp = $(this).closest(".comentario_resposta").find(".txt_responder").attr("data-idcomp");
+
+		var url = "https://www.devmedia.com.br/workspace/cafeteria/?t="+idcomp+"&c="+idcomentario_pai;
+
+		navigator.clipboard.writeText(url);
+
+		var texto_botao = $(this).find(".texto-btn-permalink")
+
+		texto_botao.text("Copiado!");
+		texto_botao.addClass("show")
+
+		setTimeout(function(){
+			texto_botao.removeClass("show")
+			texto_botao.text("");
+		}, 1750);
+	});
+
+	$("#div_comentarios").on("click",".btn_comentario_code", function(){
+		
+		var textarea = $(this).closest(".escolher-arquivo").siblings(".txt_perguntar, .txt_responder")
+
+		var currentText = textarea.val();
+		
+		var codigo = "\n[code] seu c&oacute;digo aqui [/code]";
+
+		textarea.html(currentText + codigo);
+
+		var texto_final = textarea.html();
+
+		textarea.empty();
+
+		textarea.val(texto_final);
+
+		textarea.trigger("input");
+	});
+
+	$("#div_comentarios").on("click",".container-instagram-cafeteria", function(){
+
+		var container_arquivos = $(this).closest(".escolher-arquivo");
+
+		var container_url_insta = $(this).closest(".escolher-arquivo").siblings(".container-url-insta");
+		var insta_alert = $(this).closest(".escolher-arquivo").siblings(".insta_alert");
+		insta_alert.remove();
+		var input_insta = $(`
+			<div class="container-url-insta" style="display: none;">
+				<div class="container-instagram-input">
+					<svg height="100%" width="100%" viewBox="0 0 25 25" xmlns="http://www.w3.org/2000/svg">
+						<defs></defs>
+						<path class="path-svg-insta" d="M 18.625 0 L 6.25 0 C 2.75 0 0 2.75 0 6.25 L 0 18.75 C 0 22.25 2.75 25 6.25 25 L 18.75 25 C 22.25 25 25 22.25 25 18.75 L 25 6.25 C 24.875 2.75 22.125 0 18.625 0 Z M 22.125 18.75 C 22.125 20.75 20.5 22.375 18.5 22.375 L 6.125 22.375 C 4.125 22.375 2.5 20.75 2.5 18.75 L 2.5 6.25 C 2.5 4.25 4.125 2.625 6.25 2.625 L 18.625 2.625 C 20.625 2.625 22.25 4.25 22.25 6.25 L 22.125 18.75 Z"></path>
+						<circle cx="19.125" cy="5.875" r="1.5" class="path-svg-insta"></circle>
+						<path class="path-svg-insta" d="M 12.375 5.875 C 8.75 5.875 5.75 8.875 5.75 12.5 C 5.75 16.125 8.75 19.125 12.375 19.125 C 16 19.125 19 16.125 19 12.5 C 19 8.875 16 5.875 12.375 5.875 Z M 12.375 16.25 C 10.25 16.25 8.625 14.5 8.625 12.5 C 8.625 10.5 10.375 8.75 12.375 8.75 C 14.5 8.75 16.125 10.5 16.125 12.5 C 16.125 14.5 14.5 16.25 12.375 16.25 Z"></path>
+						</svg>
+					</div>
+				<input class="url_insta" type="text" name="url_insta" placeholder="Link do seu post do instagram">
+			</div>
+		`);
+		var not_url_insta = container_url_insta.length == 0;
+		
+		if (not_url_insta) {
+			container_arquivos.before(input_insta);
+			$(this).closest(".escolher-arquivo").siblings(".container-url-insta").slideDown(400, "linear");
+		} else {
+			$(this).closest(".escolher-arquivo").siblings(".container-url-insta").slideUp(200, "linear", ()=> {
+				$(this).closest(".escolher-arquivo").siblings(".container-url-insta").remove();
+			});
+		}
+	});
+
+	var requisicao_curtindo = false;
+	$("#div_comentarios").on("click",".btn_comentario_curtir", function(){
+		if(requisicao_curtindo){
+			return false;
+		}
+		requisicao_curtindo = true;
+
+		let curtida = 1;
+		let btn = $(this);
+		let id_comentario = btn.closest(".comentario_conteudo").find(".comentario_conteudo_texto").data("comentario");
+		let a = Number(btn.find(".curtidas").text())
+
+		btn.toggleClass("active")
+
+		if(btn.hasClass("active")){
+			btn.find(".curtidas").text(a+1);
+		} else {
+			if(a > 1){
+				btn.find(".curtidas").text(a-1);				
+			}else{
+				btn.find(".curtidas").empty();
+			}
+		}
+
+
+		let dados = {
+			comentario: id_comentario,
+			curtida: curtida,
+			acao: "curtirComentario"
+		};
+
+		$.ajax({
+			url: "https://www.devmedia.com.br/inc/comentarios/controller/comentario_controller.php",
+			method:"POST",
+			data: dados,
+			success: function(res){
+				// if(res.status){
+				// 	if(res.curtida == 1){
+				// 		btn.addClass("active");
+				// 	}else{
+				// 		btn.removeClass("active");
+				// 	}
+
+				// 	if(res.total > 0){
+				// 		btn.find(".curtidas").text(res.total);												
+				// 	}else{
+				// 		btn.find(".curtidas").empty();
+				// 	}
+				// }else{
+				// 	console.log(res.msg);
+				// }
+			},
+			error: function(res){
+				console.error(res);
+			},
+			complete: function(){
+				requisicao_curtindo = false;
+			}
+		});
+	});
+
+	if(typeof comentariosCarregamentoAtrasado != "undefined" && comentariosCarregamentoAtrasado == true && typeof carregamentoAtrasado == "function"){
+		carregamentoAtrasado();
+	}
+
+	if(typeof instgrm != "undefined"){
+        instgrm.Embeds.process()
+    }
+
+	$(document).on("click", ".url_insta", function () {
+		var container_comentario = $(this).closest(".comentario_novo_area");
+		var alert = container_comentario.find(".insta_alert");
+
+		if (alert.length > 0) {
+			var btn_enviar = container_comentario.find(".btn_responder");
+			var btn_load = btn_enviar.find(".btn_load");
+			$(alert).remove();
+			btn_load.remove();
+			btn_enviar.removeAttr("disabled");
+		}
+	});
+	$(document).on("click", ".btn-projeto", function(){
+		$(".btn-projeto").css("display", "none");
+		$(".container-novo-comentario").css("display","block")
+	})
+});
+
+function exibeMensagemAviso(target, nome, fixo){
+	if(typeof fixo == "undefined"){
+		fixo = false;
+	}
+
+	$(".btn_aviso_horario").remove();
+
+	var mensagemNormal = "Nossos consultores j&aacute; est&atilde;o correndo para respond&ecirc;-lo! <br>";
+	var mensagemHorario = "Sabe como &eacute;, n&eacute;? Ap&oacute;s o hor&aacute;rio comercial, nossa equipe fica muito reduzida e sua resposta pode demorar mais do que de costume. <br>";
+	var mensagemFimDeSemana = "Sabe como &eacute;, n&eacute;? Nos fins de semana e feriados nossa equipe dorme at&eacute; mais tarde e fica um pouco mais lenta nas respostas. &#128522; <br>";
+	var dataAtual = new Date();
+	var diaDaSemana = dataAtual.getDay();
+	var hora = dataAtual.getHours();
+
+	var msgElemento = $('<span />',{
+		class: 'btn_aviso_horario'
+	});
+
+	//;var msgHtml = "Obrigado pelo coment&aacute;rio, <span class='aviso_msg_nome'>" + nome + "</span>! <br>";
+	var msgHtml = "";
+
+	if (diaDaSemana < 1 || diaDaSemana > 5){
+		msgHtml += mensagemFimDeSemana;
+	}else if(hora < 8 || hora > 17){;
+		msgHtml += mensagemHorario;
+	}else{
+		msgHtml += mensagemNormal;
+	}
+
+	msgHtml += "Em breve voc&ecirc; receber&aacute; uma notifica&ccedil;&atilde;o em seu e-mail! <br> Conte com a gente... &#128522;";
+
+	msgElemento.html(msgHtml);
+
+	if(fixo == false){
+		msgBtnFechar = $("<span />",{
+			class: "btn_aviso_fechar",
+			html: '<span class="btn_aviso-icone-fechar"><svg><line class="st0" x1="1" y1="1" x2="7" y2="7"></line><line class="st0" x1="7" y1="1" x2="1" y2="7"></line></svg></span>'
+		})
+		msgElemento.append(msgBtnFechar);
+	}
+
+	target.append(msgElemento);
+	msgElemento.addClass("ativo");
+}
+
+function calcularHoraEdicao(){
+	$(".editar-btn-area:not(.active)").each(function(i, target){
+		var container = $(target).closest(".comentario_conteudo");
+		textarea = container.find(".comentario_conteudo_texto.comentario-editavel");
+	
+		if(textarea.length > 0){
+			$(target).addClass("active");
+			var dataPost = new Date(parseInt(textarea.data("time")) * 1000);
+			var segundos = new Date().getSeconds();
+			var proximominuto = (60 - segundos) * 1000;
+
+			setTimeout(function(){
+				atualizarEdicaoTempo(target, dataPost);
+
+				var interval = setInterval(function(){
+					atualizarEdicaoTempo(target, dataPost, interval);
+				}, 1000 * 60);
+			}, proximominuto);
+		}
+	});
+}
+
+function getMinutesBetweenDates(startDate, endDate) {
+    var diff = endDate.getTime() - startDate.getTime();
+    return Math.floor((diff / 60000));
+}
+
+function atualizarEdicaoTempo(target, dataPost, interval = null){
+	var minutosCorridos = getMinutesBetweenDates(dataPost, new Date());
+	var restantes = 60 - minutosCorridos;
+
+	if(restantes > 0){
+		$(target).find(".comentario_edicao_tempo_restante").html(restantes + " min");
+	}else{
+		$(target).remove();
+		if(interval != null){
+			clearInterval(interval);
+		}
+	}
+}
+
+function atualizarComentarioComp(id_comp){
+	if(typeof id_comp != "undefined"){
+		$("#div_comentarios, #div_comentarios .txt_perguntar").attr("data-idcomp", id_comp);
+	}
+}

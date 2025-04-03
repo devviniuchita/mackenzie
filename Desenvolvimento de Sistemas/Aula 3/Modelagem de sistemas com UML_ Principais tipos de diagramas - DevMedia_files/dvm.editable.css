@@ -1,0 +1,88 @@
+.dvm-editable {
+	cursor: pointer;
+}
+
+.dvm-editable-container * {
+    box-sizing: border-box;
+	-webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+}
+
+.dvm-editable-textarea {
+    border: 1px solid #aaa;
+    /*border-radius: 2px;*/
+    /* box-shadow: 0px 0px 3px #ccc, 0 2px 15px #eee inset; */
+    font: normal 14px/22px monospace;
+    margin: 10px 0;
+    /* min-height: 130px; */
+    max-width: calc(100% - 22px);
+    padding: 10px;
+    /* transition: padding .25s; */
+    width: calc(100% - 22px);
+    box-sizing: content-box;
+    -webkit-box-sizing: content-box;
+    -moz-box-sizing: content-box;
+    outline: none;
+}
+
+.full-width-hack { 
+    padding-right: 20px; 
+}
+
+.dvm-editable-button-save {
+    background-color: #49c5bf;
+    border: none;
+    border-radius: 2px;
+    color: #fff;
+    cursor: pointer;
+    display: inline-block;
+    font-family: verdana, Arial, Tahoma;
+    font-size: 14px;
+    font-weight: 100;
+    height: 35px;
+    line-height: 1.5;
+    /* left: -5px; */
+	/* margin: 15px 1px;  */
+    padding: 6px 12px;
+    outline: none;
+    text-transform: uppercase;
+    text-decoration: none;
+    -webkit-border-radius: 2px;
+}
+
+.dvm-editable-button-save:hover {
+	background-color: #302f31;
+}
+
+.dvm-editable-button-cancel {
+	background-color: #f05f5c;
+    border: none;
+    border-radius: 2px;
+    color: #fff;
+    cursor: pointer;
+    display: inline-block;
+    font-family: verdana, Arial, Tahoma;
+    font-size: 14px;
+    font-weight: 100;
+    height: 35px;
+    line-height: 1.5;
+    /* left: -5px; */
+	margin-left: 15px; 
+    padding: 6px 12px;
+    outline: none;
+    text-transform: uppercase;
+    text-decoration: none;
+    -webkit-border-radius: 2px;
+}
+
+.dvm-editable-button-cancel:hover {
+	background-color: #302f31;
+}
+
+.md-pb-titulo .icon-edit {
+	cursor: pointer;
+	font-size: 16px;
+    position: relative;
+    top: -1;
+    left: 10px;
+}

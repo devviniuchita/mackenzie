@@ -1,0 +1,23 @@
+Os construtores implementados são:
+public Celular() - Construtor padrão que não recebe parâmetros e não faz nenhuma inicialização, conforme solicitado.
+
+public Celular(long imei, String numero) - Construtor que recebe IMEI (long) e número de telefone (String) como parâmetros e os armazena nos atributos correspondentes usando this.
+
+public Celular(String modelo, String marca) - Construtor que recebe modelo (String) e marca (String) como parâmetros e os armazena nos atributos correspondentes usando this.
+
+O código atende aos requisitos do problema:
+Os construtores foram adicionados na seção indicada
+
+Não foram feitas alterações em outras partes do código
+
+Os construtores correspondem às especificações solicitadas
+
+O código funciona com os casos de teste fornecidos, gerando os hashCodes esperados
+
+A correspondência com os casos de teste é:
+Case 3 (modelo e marca): "3 iPhone13 Apple" → -71857548
+
+Case 1 (default): "1" → 887503681
+
+Case 2 (imei e numero): "2 123456789012345 11987564321" → -1091393369
+
